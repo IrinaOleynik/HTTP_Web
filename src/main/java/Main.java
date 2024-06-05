@@ -8,7 +8,6 @@ public class Main {
 
     public static void main(String[] args) {
         Server server = new Server();
-        server.start(PORT);
         server.addHandler("GET", "/classic.html", ((request, out) -> {
                 final Path filePath = Path.of(".", "public", request.getPath());
                 final String mimeType = Files.probeContentType(filePath);
@@ -66,5 +65,6 @@ public class Main {
                     "<html><head></head><body>POST</body></html>\n").getBytes());
             out.flush();
         });
+        server.start(PORT);
     }
 }
