@@ -34,14 +34,15 @@ public class Server {
     }
 
     private void requestProcess(Socket socket) {
-        try {
+        try (final BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream());){
             final Request request = parse(socket);
             if (!handlers.containsKey(request.getMethod())) {
-                notFound(socket);
+                notFound(out);
             }
             if (!handlers.get(request.getMethod()).containsKey(request.getPath())) {
-                notFound(socket);
+                notFound(out);
             }
+            handlers.get(request.getMethod()).get(request.getPath()).handle(request, out);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -61,7 +62,7 @@ public class Server {
         final int limit = 4096;
         in.mark(limit);
         final byte[] buffer = new byte[limit];
-        final int read = in.read(buffer);
+        final var read = in.read(buffer);
 
         final byte[] requestLineDelimiter = new byte[]{'\r', '\n'};
         final int requestLineEnd = indexOf(buffer, requestLineDelimiter, 0, read);
@@ -139,8 +140,7 @@ public class Server {
                 .map(String::trim)
                 .findFirst();
     }
-    private void notFound(Socket socket) throws IOException {
-        final BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream());
+    private void notFound(BufferedOutputStream out) throws IOException {
         out.write((
                 "HTTP/1.1 404 Not Found\r\n" +
                         "Content-Length: 0\r\n" +
