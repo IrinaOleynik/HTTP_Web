@@ -27,7 +27,7 @@ public class Main {
                 out.write(content);
                 out.flush();
         }));
-        server.addHandler("GET", "/index.html", ((request, out) -> {
+        server.addHandler("POST", "/forms.html", ((request, out) -> {
             final Path filePath = Path.of(".", "public", request.getPath());
             final String mimeType = Files.probeContentType(filePath);
             final long length = Files.size(filePath);

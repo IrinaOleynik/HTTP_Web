@@ -1,6 +1,10 @@
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URIBuilder;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,7 +15,6 @@ import java.util.*;
 
 
 public class Server {
-    //private final List<String> validPaths = List.of("/index.html", "/spring.svg", "/spring.png", "/resources.html", "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js");
     private final int THREADS = 64;
     final ExecutorService threadPool;
     private final Map<String, Map<String, Handler>> handlers;
@@ -43,7 +46,7 @@ public class Server {
                 notFound(out);
             }
             handlers.get(request.getMethod()).get(request.getPath()).handle(request, out);
-        } catch (IOException e) {
+        } catch (IOException | URISyntaxException e) {
             throw new RuntimeException(e);
         }
     }
@@ -55,14 +58,14 @@ public class Server {
         handlers.get(method).put(path, handler);
     }
 
-    private Request parse(Socket socket) throws IOException {
+    private Request parse(Socket socket) throws IOException, URISyntaxException {
         final BufferedInputStream in = new BufferedInputStream(socket.getInputStream());
         final BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream());
 
         final int limit = 4096;
         in.mark(limit);
         final byte[] buffer = new byte[limit];
-        final var read = in.read(buffer);
+        final int read = in.read(buffer);
 
         final byte[] requestLineDelimiter = new byte[]{'\r', '\n'};
         final int requestLineEnd = indexOf(buffer, requestLineDelimiter, 0, read);
@@ -80,11 +83,19 @@ public class Server {
             badRequest(out);
             socket.close();
         }
-        final String path = requestLine[1];
-        if (!path.startsWith("/")) {
+        System.out.println(method);
+
+        final String pathLine = requestLine[1];
+        if (!pathLine.startsWith("/")) {
             badRequest(out);
             socket.close();
         }
+        URIBuilder builder = new URIBuilder(pathLine);
+        final String path = builder.getPath();
+        final List<NameValuePair> queryParams = builder.getQueryParams();
+        System.out.println(path);
+        System.out.println(queryParams);
+
         final byte[] headersDelimiter = new byte[]{'\r', '\n', '\r', '\n'};
         final int headersStart = requestLineEnd + requestLineDelimiter.length;
         final int headersEnd = indexOf(buffer, headersDelimiter, headersStart, read);
@@ -97,6 +108,7 @@ public class Server {
 
         final byte[] headersBytes = in.readNBytes(headersEnd - headersStart);
         final List<String> headers = Arrays.asList(new String(headersBytes).split("\r\n"));
+        System.out.println(headers);
 
         String body = "";
         if (!method.equals("GET")) {
@@ -108,7 +120,8 @@ public class Server {
                 body = new String(bodyBytes);
             }
         }
-        return new Request(method, path, headers, body);
+        System.out.println(body);
+        return new Request(method, path, queryParams, headers, body);
     }
     private int indexOf(byte[] array, byte[] target, int start, int max) {
         outer:
